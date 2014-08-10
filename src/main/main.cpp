@@ -9,7 +9,7 @@
 #include <sys/stat.h>
 
 //#include "build_environment.h"
-//#include <ecpp/auto_FILE.hpp>
+#include <libede/auto_FILE.hpp>
 //#include <ecpp/curl_easy.hpp>
 //#include <ecpp/format.hpp>
 //#include <ecpp/thread_local_singleton.hpp>
