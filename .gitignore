@@ -1,2 +1,5 @@
 build_environment.h
 lib/boost
+*.d
+*.o
+ftpush

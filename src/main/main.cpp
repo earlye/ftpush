@@ -1,3 +1,8 @@
+#include <libede/auto_FILE.hpp>
+#include <libede/curl/auto_CURL.hpp>
+#include <libede/curl/curl_easy.hpp>
+#include <libede/curl/urlencode.hpp>
+
 #include <iostream>
 #include <numeric>
 #include <stack>
@@ -7,36 +12,15 @@
 #include <ftw.h>
 #include <fnmatch.h>
 #include <sys/stat.h>
-#if 0
-//#include "build_environment.h"
-//#include <libede/auto_FILE.hpp>
-//#include <ecpp/curl_easy.hpp>
-//#include <ecpp/format.hpp>
-//#include <ecpp/thread_local_singleton.hpp>
-//#include <ecpp/urlencode.hpp>
 
-#include <boost/bind.hpp>
-#include <boost/filesystem/operations.hpp>
-#include <boost/foreach.hpp>
-#include <boost/function.hpp>
+#include <FILE.h>
+#include <curl/curl.h>
+#include <stdexcept>
+
 #include <boost/noncopyable.hpp>
-#include <boost/program_options.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/ini_parser.hpp>
-#include <boost/regex.hpp>
 
-namespace po = boost::program_options;
-
-template< typename TARGET_TYPE , typename SOURCE_TYPE > 
-TARGET_TYPE lexical_cast( SOURCE_TYPE source , TARGET_TYPE default_value )
-{
-  TARGET_TYPE result = default_value;
-  std::stringstream s;
-  s << source;
-  s.seekg( 0 );
-  s >> result;
-  return result;
-}
+#define BUILD_NUMBER 1
+#define BUILD_ID 1
 
 int curl_debug(CURL * handle,  curl_infotype info,  char  * message, size_t msg_size,  void  * user_data)
 {
@@ -47,6 +31,49 @@ size_t curl_header( void *ptr,  size_t  size,  size_t  nmemb,void  *userdata )
 {
   return size;
 }
+
+#include <libede/format.hpp>
+
+#include <boost/bind.hpp>
+#include <boost/filesystem/operations.hpp>
+#include <boost/foreach.hpp>
+#include <boost/format.hpp>
+#include <boost/function.hpp>
+#include <boost/program_options.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ini_parser.hpp>
+#include <boost/regex.hpp>
+
+namespace po = boost::program_options;
+
+template< typename TARGET_TYPE , typename SOURCE_TYPE >
+TARGET_TYPE lexical_cast( SOURCE_TYPE source , TARGET_TYPE default_value )
+{
+  TARGET_TYPE result = default_value;
+  std::stringstream s;
+  s << source;
+  s.seekg( 0 );
+  s >> result;
+  return result;
+}
+
+namespace ecpp
+{
+  template< typename OBJECT_TYPE , typename TAG_TYPE >
+  class thread_local_singleton
+  {
+  public:
+    typedef OBJECT_TYPE object_type;
+    typedef TAG_TYPE tag_type;
+    static object_type& instance()
+    {
+      static object_type result;
+      return result;
+    }
+  };
+}
+
+
 
 class ftpscanner
   : public boost::noncopyable
@@ -65,7 +92,8 @@ public:
 
   ~ftpscanner( )
   {
-    std::cout << boost::format( "%d files found\n%d files transferred\n%d files skipped\n") % files_ % transfers_ % skips_;
+    std::cout <<
+      boost::format( "%d files found\n%d files transferred\n%d files skipped\n") % files_ % transfers_ % skips_;
   }
 
   static int callback( char const* path , struct stat const* sb , int typeflag )
@@ -78,12 +106,12 @@ public:
   {
     BOOST_FOREACH( boost::regex& v , ignore_local_ )
       {
-	if ( regex_match( path , v ) )
-	  {
-	    if ( log_skipped_files() )
-	      std::cout << boost::format( "SKIPPING: %s matches regex %s\n" ) % path % v;
-	    return 0;
-	  }
+        if ( regex_match( path , v ) )
+          {
+            if ( log_skipped_files() )
+              std::cout << boost::format( "SKIPPING: %s matches regex %s\n" ) % path % v;
+            return 0;
+          }
       }
 
     if ( typeflag & ( FTW_D | FTW_DNR | FTW_DP )  )
@@ -95,22 +123,22 @@ public:
     std::string username = config_.get<std::string>( "site.username" );
     std::string password = config_.get<std::string>( "site.password" );
 
-    std::string url = ecpp::format( "ftp://%s:%s@%s/%s" )
-      % ecpp::urlencode(username)
-      % ecpp::urlencode(password)
+    std::string url = libede::format( "ftp://%s:%s@%s/%s" )
+      % libede::curl::urlencode(username)
+      % libede::curl::urlencode(password)
       % config_.get<std::string>( "site.host" )
       % remote_path;
 
-    std::string loggable_url = ecpp::format( "ftp://%s:***@%s/%s" )
-      % ecpp::urlencode(username)
+    std::string loggable_url = libede::format( "ftp://%s:***@%s/%s" )
+      % libede::curl::urlencode(username)
       % config_.get<std::string>( "site.host" )
       % remote_path;
 
-    ecpp::auto_FILE local_file( std::fopen( path.c_str() , "r" ) );
+    libede::auto_FILE local_file( std::fopen( path.c_str() , "r" ) );
 
     curl_.setopt_url( url );
     curl_.setopt_verbose( log_ftp_commands() );
-    curl_.setopt_ftp_create_missing_dirs( true );
+    curl_.setopt_ftp_create_missing_dirs( CURLFTP_CREATE_DIR_RETRY );
     curl_.setopt( CURLOPT_READDATA , local_file.get() );
     curl_.setopt( CURLOPT_READFUNCTION , std::fread );
     curl_.setopt( CURLOPT_FILETIME , 1 );
@@ -120,85 +148,85 @@ public:
 
     if ( !remote_time )
       {
-	// Disable the data transfer and just get the time.
-	curl_.setopt( CURLOPT_NOBODY , 1 );
-	curl_.setopt( CURLOPT_FTP_FILEMETHOD , CURLFTPMETHOD_NOCWD );
+        // Disable the data transfer and just get the time.
+        curl_.setopt( CURLOPT_NOBODY , 1 );
+        curl_.setopt( CURLOPT_FTP_FILEMETHOD , CURLFTPMETHOD_NOCWD );
 
 #if LIBCURL_VERSION_NUM <= 0x071c00
 #define CURL_RUDELY_PRINTS_TO_STDOUT
 #endif
 
 #ifdef CURL_RUDELY_PRINTS_TO_STDOUT
-	fclose( stdout );
-	freopen( "/dev/null" , "a" , stdout );
+        fclose( stdout );
+        freopen( "/dev/null" , "a" , stdout );
 #endif
 
-	CURLcode check = curl_.try_perform( );
+        CURLcode check = curl_.try_perform( );
 
 #ifdef CURL_RUDELY_PRINTS_TO_STDOUT
-	fclose( stdout );
-	freopen( "/dev/tty" , "a" , stdout );
+        fclose( stdout );
+        freopen( "/dev/tty" , "a" , stdout );
 #endif
 
-	if ( check == CURLE_OK )
-	  curl_.getinfo( CURLINFO_FILETIME , &remote_time );
+        if ( check == CURLE_OK )
+          curl_.getinfo( CURLINFO_FILETIME , &remote_time );
 
-	time_cache_[ path ] = remote_time;
+        time_cache_[ path ] = remote_time;
       }
     else
       {
-	if ( log_using_cached_time() )
-	  std::cout << boost::format( "%s using cached remote time:%d\n" ) % path % remote_time;
+        if ( log_using_cached_time() )
+          std::cout << boost::format( "%s using cached remote time:%d\n" ) % path % remote_time;
       }
 
     bool upload = local_time > remote_time;
 
     if ( log_time_check() )
       std::cout << boost::format( "%s local time:%d remote time:%d upload?:%d\n" )
-	% path % local_time % remote_time % upload;
+        % path % local_time % remote_time % upload;
 
     if ( upload )
       {
-	if ( log_uploading_files() )
-	  {
-	    std::cout << boost::format( "%s => %s [remote-time:%d local-time:%d]\n" )
-	      % path % loggable_url % remote_time % local_time;
-	  }
+        if ( log_uploading_files() )
+          {
+            std::cout << boost::format( "%s => %s [remote-time:%d local-time:%d]\n" )
+              % path % loggable_url % remote_time % local_time;
+          }
 
-	curl_.setopt_upload( true );
-	curl_.setopt_url( url );
-	curl_.setopt( CURLOPT_NOBODY , 0 );
-	curl_.setopt( CURLOPT_FILETIME , 0 );
-	curl_.setopt( CURLOPT_FTP_FILEMETHOD , CURLFTPMETHOD_SINGLECWD ); 
-	CURLcode check = curl_.try_perform( );
+        curl_.setopt_upload( true );
+        curl_.setopt_url( url );
+        curl_.setopt( CURLOPT_NOBODY , 0 );
+        curl_.setopt( CURLOPT_FILETIME , 0 );
+        curl_.setopt( CURLOPT_FTP_FILEMETHOD , CURLFTPMETHOD_SINGLECWD );
+        CURLcode check = curl_.try_perform( );
 
-	if ( check != CURLE_OK )
-	  {
-	    curl_.setopt_upload( true );
-	    curl_.setopt_url( url );
-	    curl_.setopt_verbose( 1 );
-	    curl_.setopt_ftp_create_missing_dirs( true );
-	    curl_.setopt( CURLOPT_READDATA , local_file.get() );
-	    curl_.setopt( CURLOPT_READFUNCTION , std::fread );
-	    curl_.setopt( CURLOPT_DEBUGFUNCTION , curl_debug );
-	    curl_.setopt( CURLOPT_DEBUGFUNCTION , curl_header );
-	    curl_.setopt( CURLOPT_FTP_FILEMETHOD , CURLFTPMETHOD_MULTICWD );
-	    curl_.perform( ); // LAST CHANCE!
-	  }
-	++transfers_;
+        if ( check != CURLE_OK )
+          {
+            curl_.setopt_upload( true );
+            curl_.setopt_url( url );
+            curl_.setopt_verbose( 1 );
+            curl_.setopt_ftp_create_missing_dirs( CURLFTP_CREATE_DIR_RETRY );
+            curl_.setopt( CURLOPT_READDATA , local_file.get() );
+            curl_.setopt( CURLOPT_READFUNCTION , std::fread );
+            curl_.setopt( CURLOPT_DEBUGFUNCTION , curl_debug );
+            curl_.setopt( CURLOPT_DEBUGFUNCTION , curl_header );
+            curl_.setopt( CURLOPT_FTP_FILEMETHOD , CURLFTPMETHOD_MULTICWD );
+            curl_.perform( ); // LAST CHANCE!
+          }
+        ++transfers_;
       }
     else
       {
-	++skips_;
+        ++skips_;
       }
 
     time_cache_[path] = local_time;
     { std::string time_cache_file = config_.get< std::string>( "site.time-cache" , "" );
       if ( time_cache_file.length() )
-	{
-	  std::ofstream file( time_cache_file.c_str() , std::ios::app );
-	  file << path << "\n" << local_time << "\n";
-	}
+        {
+          std::ofstream file( time_cache_file.c_str() , std::ios::app );
+          file << path << "\n" << local_time << "\n";
+        }
     }
     return 0;
   }
@@ -214,53 +242,53 @@ public:
     { std::string time_cache_file = config_.get<std::string>( "site.time-cache" , "" );
       time_cache_.clear();
       if ( time_cache_file.length() )
-	{
-	  std::ifstream file( time_cache_file.c_str() );
-	  while( file && !file.eof() )
-	    {
-	      std::string time;
-	      std::string path;
-	      std::getline( file , path );
-	      std::getline( file , time );
-	      time_cache_[ path ] = lexical_cast<time_t>(time,0);
-	    }
-	}
+        {
+          std::ifstream file( time_cache_file.c_str() );
+          while( file && !file.eof() )
+            {
+              std::string time;
+              std::string path;
+              std::getline( file , path );
+              std::getline( file , time );
+              time_cache_[ path ] = lexical_cast<time_t>(time,0);
+            }
+        }
     }
 
     BOOST_FOREACH(boost::property_tree::ptree::value_type& v, config_.get_child("ignore-local"))
       {
-	std::string regex_string = v.first;
-	bool enabled = boost::lexical_cast<bool>(v.second.data());
-	if ( !enabled )
-	  continue;
+        std::string regex_string = v.first;
+        bool enabled = boost::lexical_cast<bool>(v.second.data());
+        if ( !enabled )
+          continue;
 
-	if ( log_regex_ignore_local() )
-	  std::cout << boost::format( "%s - adding regex to ignore_local_:%s\n" ) % __PRETTY_FUNCTION__ % regex_string;
-	boost::regex regex( regex_string );
-	ignore_local_.push_back(regex);
+        if ( log_regex_ignore_local() )
+          std::cout << boost::format( "%s - adding regex to ignore_local_:%s\n" ) % __PRETTY_FUNCTION__ % regex_string;
+        boost::regex regex( regex_string );
+        ignore_local_.push_back(regex);
       }
 
 
     scanner_stack::instance().push( this );
     BOOST_FOREACH(boost::property_tree::ptree::value_type& v, config_.get_child("directory-map"))
-      {	
-	static boost::regex trailing_slash( "/$" );
-	static boost::regex leading_slash( "^/" );
-	local_dir_ = boost::regex_replace( v.first , trailing_slash ,  "" , boost::match_default | boost::format_sed );
-	remote_dir_ = boost::regex_replace( v.second.data() , trailing_slash ,  "" , boost::match_default | boost::format_sed );
-	remote_dir_ = boost::regex_replace( remote_dir_ , leading_slash , "" , boost::match_default | boost::format_sed );
+      {
+        static boost::regex trailing_slash( "/$" );
+        static boost::regex leading_slash( "^/" );
+        local_dir_ = boost::regex_replace( v.first , trailing_slash ,  "" , boost::match_default | boost::format_sed );
+        remote_dir_ = boost::regex_replace( v.second.data() , trailing_slash ,  "" , boost::match_default | boost::format_sed );
+        remote_dir_ = boost::regex_replace( remote_dir_ , leading_slash , "" , boost::match_default | boost::format_sed );
 
-	if ( log_configured_directories() )
-	  {
-	    std::cout << boost::format( "%s - local_dir:%s\n" ) % __PRETTY_FUNCTION__ % local_dir_;
-	    std::cout << boost::format( "%s - remote_dir:%s\n" ) % __PRETTY_FUNCTION__ % remote_dir_;
-	  }
+        if ( log_configured_directories() )
+          {
+            std::cout << boost::format( "%s - local_dir:%s\n" ) % __PRETTY_FUNCTION__ % local_dir_;
+            std::cout << boost::format( "%s - remote_dir:%s\n" ) % __PRETTY_FUNCTION__ % remote_dir_;
+          }
 
-	local_dir_regex_ = boost::regex(local_dir_ + "(.*)$");
-	remote_dir_pattern_ = remote_dir_ + "\\1";
+        local_dir_regex_ = boost::regex(local_dir_ + "(.*)$");
+        remote_dir_pattern_ = remote_dir_ + "\\1";
 
 
-	ftw( local_dir_.c_str() , callback , FTW_MOUNT | FTW_PHYS );
+        ftw( local_dir_.c_str() , callback , FTW_MOUNT | FTW_PHYS );
       }
     scanner_stack::instance().pop( );
     return 0;
@@ -321,7 +349,7 @@ private:
   std::string remote_dir_;
   boost::regex local_dir_regex_;
   std::string remote_dir_pattern_;
-  ecpp::curl_easy curl_;
+  libede::curl::curl_easy curl_;
   int files_;
   int transfers_;
   int skips_;
@@ -332,10 +360,10 @@ private:
 int try_main( int argc, char** argv )
 {
   std::string description = "ftpush";
-  std::string version = ecpp::format( "BUILD_NUMBER %s BUILD_ID %s" ) % BUILD_NUMBER % BUILD_ID;
+  std::string version = libede::format( "BUILD_NUMBER %s BUILD_ID %s" ) % BUILD_NUMBER % BUILD_ID;
   std::vector< std::string > sites;
 
-  po::options_description desc( "Usage" );
+  po::options_description desc( "Available Options" );
   desc.add_options()
     ("help,h", "produce help message")
     ("version,v" , "display version")
@@ -348,7 +376,7 @@ int try_main( int argc, char** argv )
   po::variables_map vm;
   po::store(po::command_line_parser(argc,argv).options(desc).positional(p).run(),vm);
   po::notify(vm);
-   
+
   if (vm.count("version") || vm.count("help") )
     {
       std::cout << (boost::format( "%s %s" ) % description % version) << std::endl;
@@ -356,6 +384,13 @@ int try_main( int argc, char** argv )
 
   if (vm.count("help"))
     {
+      std::cout << desc << std::endl;
+      return 0;
+    }
+
+  if (!sites.size())
+    {
+      std::cout << "Usage:" << argv[0] << " [options]\n";
       std::cout << desc << std::endl;
       return 0;
     }
@@ -380,9 +415,3 @@ int main( int argc, char** argv )
       return 1;
     }
 }
-#else
-int main(int argc, char** argv)
-{
-  std::cout << "Howdy." << std::endl;
-}
-#endif

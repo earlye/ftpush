@@ -4,3 +4,6 @@
 [submodule "lib/curl"]
 	path = lib/curl
 	url = git@github.com:earlye/curl.git
+[submodule "lib/libede-curl"]
+	path = lib/libede-curl
+	url = git@github.com:earlye/libede-curl.git

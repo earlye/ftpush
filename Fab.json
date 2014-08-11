@@ -1,15 +1,16 @@
 { "target" : "ftpush",
   "ignore" : [ "lib" , "monkey" ],
+
   "cxxflags" : [ "-std=c++11",
                  "-g",
                  "-Ilib/boost/boost_1_55_0/include",
                  "-Ilib/boost-process",
                  "-Ilib",
                  "-Ilib/curl/lib",
-                 "-Ilib/curl/include"],
+                 "-Ilib/curl/include",
+                 "-Ilib/libede-curl/src/main" ],
 
   "cflags" : [ "-g",
-               "-Dmacintosh",
                "-include","curl_fab.h",
                "-Ilib/curl/lib",
                "-Ilib/curl/include" ],
@@ -17,6 +18,7 @@
   "library_dirs" : [ "lib/boost/boost_1_55_0/libs/system/src/",
                      "lib/boost/boost_1_55_0/libs/filesystem/src/",
                      "lib/boost/boost_1_55_0/libs/program_options/src/",
+                     "lib/boost/boost_1_55_0/libs/regex/src",
                      "lib/boost/boost_1_55_0/libs/iostreams/src" ,
                      "lib/curl/lib" ],
 
