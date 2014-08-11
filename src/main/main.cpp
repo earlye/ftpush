@@ -7,9 +7,9 @@
 #include <ftw.h>
 #include <fnmatch.h>
 #include <sys/stat.h>
-
+#if 0
 //#include "build_environment.h"
-#include <libede/auto_FILE.hpp>
+//#include <libede/auto_FILE.hpp>
 //#include <ecpp/curl_easy.hpp>
 //#include <ecpp/format.hpp>
 //#include <ecpp/thread_local_singleton.hpp>
@@ -380,3 +380,9 @@ int main( int argc, char** argv )
       return 1;
     }
 }
+#else
+int main(int argc, char** argv)
+{
+  std::cout << "Howdy." << std::endl;
+}
+#endif

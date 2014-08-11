@@ -1,0 +1,11 @@
+#ifndef h999AC8F3_238D_4032_83D5_D54947DF1E3F
+#define h999AC8F3_238D_4032_83D5_D54947DF1E3F
+
+#include "config-mac.h"
+#undef HAVE_EXTRA_STRICMP_H
+#undef HAVE_EXTRA_STRDUP_H
+#undef HAVE_IOCTL_FIONBIO
+#define HAVE_FCNTL_O_NONBLOCK
+#define size_T size_t
+
+#endif
