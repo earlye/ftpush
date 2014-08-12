@@ -1,6 +1,27 @@
 #include "ftpscanner.hpp"
 
-typedef ecpp::thread_local_singleton< std::stack< ftpscanner* > , ftpscanner > scanner_stack;
+#include <libede/auto_FILE.hpp>
+#include <libede/format.hpp>
+#include <libede/lexical_cast.hpp>
+#include <libede/thread_local_singleton.hpp>
+
+#include <libede/curl/urlencode.hpp>
+
+#include <ftw.h>
+
+#include <boost/foreach.hpp>
+#include <boost/format.hpp>
+
+#include <boost/filesystem/operations.hpp>
+#include <boost/property_tree/ini_parser.hpp>
+
+#include <fstream>
+#include <iostream>
+
+
+namespace po = boost::program_options;
+
+typedef libede::thread_local_singleton< std::stack< ftpscanner* > , ftpscanner > scanner_stack;
 
 ftpscanner::ftpscanner( )
   : files_( 0 )
@@ -182,7 +203,7 @@ int ftpscanner::operator( )( int errors , std::string const& filename )
             std::string path;
             std::getline( file , path );
             std::getline( file , time );
-            time_cache_[ path ] = libede::lexical_cast<time_t>(time,0);
+	    time_cache_[ path ] = libede::lexical_cast<time_t>(time,0);
           }
       }
   }

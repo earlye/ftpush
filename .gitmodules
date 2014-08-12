@@ -7,3 +7,6 @@
 [submodule "lib/libede-curl"]
 	path = lib/libede-curl
 	url = git@github.com:earlye/libede-curl.git
+[submodule "lib/ecpp"]
+	path = lib/ecpp
+	url = https://github.com/earlye/ecpp

@@ -1,44 +1,17 @@
 #ifndef h96B575E2_8BEC_4CA0_81DF_A8F070EEEF06
 #define h96B575E2_8BEC_4CA0_81DF_A8F070EEEF06
 
-#include "thread_local_singleton.hpp"
-
-#include <libede/auto_FILE.hpp>
-#include <libede/format.hpp>
 #include <libede/curl/curl_easy.hpp>
-#include <libede/curl/urlencode.hpp>
 
-#include <ftw.h>
-
-#include <boost/foreach.hpp>
-#include <boost/format.hpp>
-#include <boost/lexical_cast.hpp>
 #include <boost/noncopyable.hpp>
 #include <boost/program_options.hpp>
 #include <boost/regex.hpp>
-#include <boost/filesystem/operations.hpp>
+
 #include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/ini_parser.hpp>
 
-#include <fstream>
-#include <iostream>
+#include <map>
 #include <string>
-
-namespace po = boost::program_options;
-
-namespace libede
-{
-  template< typename TARGET_TYPE , typename SOURCE_TYPE >
-  TARGET_TYPE lexical_cast( SOURCE_TYPE source , TARGET_TYPE default_value )
-  {
-    TARGET_TYPE result = default_value;
-    std::stringstream s;
-    s << source;
-    s.seekg( 0 );
-    s >> result;
-    return result;
-  }
-}
+#include <vector>
 
 class ftpscanner
   : public boost::noncopyable
@@ -46,6 +19,7 @@ class ftpscanner
 
 public:
   typedef int result_type;
+  typedef boost::program_options::variables_map variables_map;
 
   ftpscanner( );
   
@@ -55,7 +29,7 @@ public:
 
   int operator( )( int errors , std::string const& filename );
 
-  void set_command_line_variables( po::variables_map const& vm );
+  void set_command_line_variables( variables_map const& vm );
 
   bool log_transfers() const;
 
@@ -76,7 +50,7 @@ public:
   bool log_using_cached_time() const;
 
 private:
-  po::variables_map vm_;
+  variables_map vm_;
   boost::property_tree::ptree config_;
   std::map< std::string , time_t > time_cache_;
   std::string local_dir_;
