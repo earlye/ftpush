@@ -91,6 +91,7 @@ int ftpscanner::process( std::string path , struct stat const* sb , int typeflag
   curl_.setopt_url( url );
   curl_.setopt_verbose( log_ftp_commands() );
   curl_.setopt_ftp_create_missing_dirs( CURLFTP_CREATE_DIR_RETRY );
+  curl_.setopt( CURLOPT_FTP_FILEMETHOD, CURLFTPMETHOD_MULTICWD );
   curl_.setopt( CURLOPT_READDATA , local_file.get() );
   curl_.setopt( CURLOPT_READFUNCTION , std::fread );
   curl_.setopt( CURLOPT_FILETIME , 1 );
